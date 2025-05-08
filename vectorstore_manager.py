@@ -1,10 +1,10 @@
 import os
+import shutil
 from typing import List, Set
 from tqdm import tqdm
 from langchain.docstore.document import Document
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
-from utils import load_config, compute_sha1
 
 
 class VectorstoreManager:
@@ -23,39 +23,44 @@ class VectorstoreManager:
             self.load_vectorstore()
 
         try:
-            existing_ids = set(self.vs.get(include=["ids"])["ids"])
+            store_data = self.vs.get(include=["ids"])
+            print("STORED IDS (first 3):", store_data["ids"][:3])  # 👈 Add this line
+            existing_ids = set(store_data["ids"])
         except Exception:
             existing_ids = set()
 
         new_chunks, new_ids = [], []
         for doc in tqdm(chunks, desc="🔄 Adding documents"):
-            doc_id = compute_sha1(doc.page_content)
-            doc.metadata["id"] = doc_id
-            if doc_id not in existing_ids:
+            doc_id = doc.metadata.get("id")
+            if doc_id and doc_id not in existing_ids:
                 new_chunks.append(doc)
                 new_ids.append(doc_id)
 
         if new_chunks:
-            print(f"🆕 Adding {len(new_chunks)} new documents.")
+            print(f"🆕 Added {len(new_chunks)} new files to the knowledge base.")
             self.vs.add_documents(new_chunks, ids=new_ids)
         else:
-            print("✅ No new documents to add — already up to date.")
+            print("✅ Your knowledge base is already up to date.")
             
     def needs_update(self, chunks: List[Document]) -> bool:
         if self.vs is None:
             return True
         try:
-            existing_ids = set(self.vs.get(include=["ids"])["ids"])
+            store_data = self.vs.get(include=["metadatas"])
+            existing_ids = {
+                meta.get("id") for meta in store_data["metadatas"]
+                if meta.get("id") is not None
+            }
         except Exception:
             return True
+
         new_ids = {doc.metadata["id"] for doc in chunks}
         return not existing_ids.issuperset(new_ids)
 
+
     def delete_vectorstore(self) -> None:
         if os.path.exists(self.chroma_path):
-            for file in os.listdir(self.chroma_path):
-                os.remove(os.path.join(self.chroma_path, file))
-            os.rmdir(self.chroma_path)
+            shutil.rmtree(self.chroma_path)
             print(f"🗑️ Deleted vectorstore at {self.chroma_path}")
         else:
             print("⚠️ Vectorstore directory does not exist.")

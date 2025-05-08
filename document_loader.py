@@ -2,6 +2,7 @@ import os
 import yaml
 import json
 import requests
+from utils import compute_sha1
 from bs4 import BeautifulSoup
 from typing import List, Dict
 from abc import ABC, abstractmethod
@@ -34,20 +35,15 @@ class BaseDocumentLoader(ABC):
 
     @staticmethod
     def assign_chunk_ids(chunks: List[Document]) -> List[Document]:
-        chunk_index_tracker: Dict[str, int] = {}
 
         for doc in chunks:
             file = os.path.basename(doc.metadata.get("source", "unknown"))
             page = doc.metadata.get("page", -1)
-            key = f"{file}:{page}"
-
-            idx = chunk_index_tracker.get(key, 0)
-            chunk_index_tracker[key] = idx + 1
-
+            chunk_hash = compute_sha1(f"{file}:{page}:{doc.page_content}")[:20]
             doc.metadata["file"] = file
             doc.metadata["page"] = page
-            doc.metadata["chunk"] = idx
-            doc.metadata["id"] = f"{file}:{page}:{idx}"
+            doc.metadata["chunk"] = chunk_hash
+            doc.metadata["id"] = f"{file}:{page}:{chunk_hash}"
 
         return chunks
 

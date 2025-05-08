@@ -35,12 +35,16 @@ if args.reset:
 # Use Smart Loader
 loader = SmartDocumentLoader(config=config)
 documents = loader.load()
-print(f"📄 Loaded {len(documents)} documents from multiple sources.")
+#print(f"📄 Loaded {len(documents)} documents from multiple sources.")
 
 # Chunking
-print("🔪 Splitting into chunks...")
+#print("🔪 Splitting into chunks...")
 chunks = loader.split_documents(documents)
 
 # Add to vectorstore
 vs_manager.load_vectorstore()
-vs_manager.add_documents(chunks)
+if vs_manager.needs_update(chunks):
+    vs_manager.add_documents(chunks)
+else:
+    print("✅ Your knowledge base is already up to date.")
+
