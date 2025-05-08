@@ -1,7 +1,8 @@
 # File/Directory Paths
 data_path: ./data
-chroma_path: ./chroma_db
+vector_db_path: ./vector_db
 snapshot_path: ./snapshots
+prompt_path: ./prompts.yaml
 
 # Chunking Params
 chunk:

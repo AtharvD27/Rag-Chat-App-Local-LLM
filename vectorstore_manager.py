@@ -2,7 +2,7 @@ import os
 import yaml
 from typing import List, Set
 from langchain.docstore.document import Document
-from langchain.vectorstores import Chroma, FAISS
+from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
 
 
@@ -11,7 +11,7 @@ class VectorstoreManager:
         with open(config_path) as f:
             self.config = yaml.safe_load(f)
 
-        self.chroma_path = self.config.get("chroma_path", "./chroma_db")
+        self.chroma_path = self.config.get("vector_db", "./vector_db")
         model_name = self.config.get("embedding", {}).get("model_name", "all-MiniLM-L6-v2")
         self.embedding_function = HuggingFaceEmbeddings(model_name=model_name)
         self.vs = None

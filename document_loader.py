@@ -1,4 +1,5 @@
 import os
+import yaml
 from typing import List, Dict
 from abc import ABC, abstractmethod
 from langchain.docstore.document import Document

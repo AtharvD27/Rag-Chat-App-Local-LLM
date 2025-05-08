@@ -1,4 +1,5 @@
 import argparse
+from tqdm import tqdm
 from document_loader import PDFDirectoryLoader
 from vectorstore_manager import VectorstoreManager
 
@@ -10,24 +11,39 @@ parser.add_argument("--reset", action="store_true", help="Delete and rebuild the
 parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file.")
 args = parser.parse_args()
 
-# Load config
+# Block silent execution with no flags
+if not (args.update or args.delete or args.reset):
+    parser.print_help()
+    exit(0)
+
+# Load manager
 vs_manager = VectorstoreManager(config_path=args.config)
 
-# DELETE
+# DELETE ONLY
 if args.delete:
     vs_manager.delete_vectorstore()
     exit(0)
 
-# RESET
+# RESET (delete + full rebuild)
 if args.reset:
+    print("🔄 Resetting vectorstore...")
     vs_manager.delete_vectorstore()
-    # continue to full rebuild
+    # Proceed to re-add documents after reset
 
-# LOAD DOCUMENTS
-loader = PDFDirectoryLoader(path=vs_manager.config.get("data_path", "./data"))
+# UPDATE or RESET both continue here
+data_path = vs_manager.config.get("data_path", "./data")
+loader = PDFDirectoryLoader(path=data_path, config_path=args.config)
+
+# Load PDFs
 documents = loader.load()
-chunks = loader.split_documents(documents)
+print(f"📄 Loaded {len(documents)} documents.")
 
-# UPDATE
+# Split into chunks with progress
+print("🔪 Splitting into chunks...")
+chunks = []
+for doc in tqdm(documents, desc="Chunking"):
+    chunks.extend(loader.split_documents([doc]))
+
+# Add to vectorstore
 vs_manager.load_vectorstore()
 vs_manager.add_documents(chunks)
