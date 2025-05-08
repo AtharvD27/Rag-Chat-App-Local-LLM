@@ -1,54 +1,67 @@
 from typing import Tuple, List, Dict
-from langchain.chains import ConversationalRetrievalChain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import LLMChain
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
-from langchain.schema import Document
-from langchain.memory import ConversationBufferMemory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables import RunnableLambda, RunnableMap, Runnable
+from langchain_core.documents import Document
+from langchain_core.memory import BaseMemory
 from langchain.vectorstores.base import VectorStoreRetriever
-from langchain.llms.base import LLM
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 import yaml
 
 
 class ChatAgent:
-    def __init__(self, llm: LLM, retriever: VectorStoreRetriever, memory: ConversationBufferMemory = None, config: dict = {}):
-        self.config = config
-        self.prompts = self._load_prompts(config.get("prompt_path", "./prompts.yaml"))
+    def __init__(
+        self,
+        llm: BaseChatModel,
+        retriever: VectorStoreRetriever,
+        memory: BaseMemory,
+        config: dict
+    ):
         self.llm = llm
         self.retriever = retriever
-        self.memory = memory or ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+        self.memory = memory
+        self.config = config
+        self.prompts = self._load_prompts(config.get("prompt_path", "./prompts.yaml"))
         self.chain = self._create_chain()
-        
+
     def _load_prompts(self, prompt_path: str) -> dict:
         with open(prompt_path) as f:
             return yaml.safe_load(f)
-    
-    def _create_chain(self) -> ConversationalRetrievalChain:
-        # 1. Prompt to generate standalone question
-        rewrite_prompt = PromptTemplate.from_template(self.prompts["question_rewrite_prompt"])
-        question_generator_chain = LLMChain(llm=self.llm, prompt=rewrite_prompt)
 
-        # 2. Prompt to answer based on retrieved docs
+    def _create_chain(self) -> Runnable:
         answer_prompt = ChatPromptTemplate.from_messages([
             ("system", self.prompts["answer_prompt_system"]),
-            MessagesPlaceholder("chat_history"),
+            MessagesPlaceholder(variable_name="chat_history"),
             ("human", self.prompts["answer_prompt_human"]),
         ])
-        combine_docs_chain = create_stuff_documents_chain(llm=self.llm, prompt=answer_prompt)
 
-        # 3. Conversational RAG chain with both components
-        return ConversationalRetrievalChain(
-            retriever=self.retriever,
-            memory=self.memory,
-            question_generator=question_generator_chain,
-            combine_docs_chain=combine_docs_chain,
-            return_source_documents=True
+        combine_docs_chain = create_stuff_documents_chain(
+            llm=self.llm,
+            prompt=answer_prompt
         )
 
+        question_only = RunnableLambda(lambda x: x["question"])
+        rag_chain = RunnableMap({
+            "context": question_only | self.retriever,
+            "question": lambda x: x["question"],
+            "chat_history": lambda x: x["chat_history"],
+        }) | combine_docs_chain
+
+        return rag_chain
+
     def ask(self, query: str) -> Tuple[str, List[Dict]]:
-        result = self.chain({"question": query})
-        answer = result["answer"]
-        sources = self._extract_sources(result["source_documents"])
+        # Run retriever manually for access to source docs
+        retrieved_docs = self.retriever.invoke(query)
+
+        result = self.chain.invoke({
+            "question": query,
+            "chat_history": self.memory.chat_memory.messages,
+            "context": retrieved_docs
+        })
+
+        answer = result
+        sources = self._extract_sources(retrieved_docs)
         return answer, sources
 
     def _extract_sources(self, docs: List[Document]) -> List[Dict]:

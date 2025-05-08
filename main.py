@@ -11,6 +11,8 @@ def main():
     parser.add_argument("--model_path", type=str, help="Override model path")
     parser.add_argument("--temperature", type=float, help="Override LLM temperature")
     parser.add_argument("--config", type=str, default="config.yaml", help="Config file path")
+    parser.add_argument("--skip_update", action="store_true", help="Skip vectorstore update")
+
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -22,7 +24,7 @@ def main():
     # Chat session
     print("🤖 Starting RAG chat agent...")
     chunks = load_documents(config)
-    retriever = update_vectorstore(config, chunks)
+    retriever = update_vectorstore(config, chunks, skip_update=args.skip_update)
     llm = setup_llm(config, overrides)
 
     config["retriever"] = retriever

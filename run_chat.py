@@ -10,10 +10,10 @@ def load_documents(config):
     documents = loader.load()
     return loader.split_documents(documents)
 
-def update_vectorstore(config, chunks):
+def update_vectorstore(config, chunks, skip_update=False):
     vs_manager = VectorstoreManager(config)
     vs_manager.load_vectorstore()
-    if vs_manager.needs_update(chunks):
+    if not skip_update and vs_manager.needs_update(chunks):
         vs_manager.add_documents(chunks)
     else:
         print("✅ Vectorstore is up to date.")
