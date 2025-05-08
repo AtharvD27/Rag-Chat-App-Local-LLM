@@ -1,17 +1,16 @@
 import os
-import yaml
 from typing import List, Set
+from tqdm import tqdm
 from langchain.docstore.document import Document
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceEmbeddings
+from utils import load_config, compute_sha1
 
 
 class VectorstoreManager:
-    def __init__(self, config_path: str = "config.yaml"):
-        with open(config_path) as f:
-            self.config = yaml.safe_load(f)
-
-        self.chroma_path = self.config.get("vector_db", "./vector_db")
+    def __init__(self, config: dict):
+        self.config = config
+        self.chroma_path = self.config.get("vector_db_path", "./vector_db")
         model_name = self.config.get("embedding", {}).get("model_name", "all-MiniLM-L6-v2")
         self.embedding_function = HuggingFaceEmbeddings(model_name=model_name)
         self.vs = None
@@ -23,21 +22,23 @@ class VectorstoreManager:
         if self.vs is None:
             self.load_vectorstore()
 
-        existing_ids: Set[str] = set()
         try:
-            store_data = self.vs.get(include=[])
-            existing_ids = set(store_data["ids"])
+            existing_ids = set(self.vs.get(include=["ids"])["ids"])
         except Exception:
-            pass  # new DB or error retrieving ids
+            existing_ids = set()
 
-        new_chunks = [doc for doc in chunks if doc.metadata["id"] not in existing_ids]
-        new_ids = [doc.metadata["id"] for doc in new_chunks]
+        new_chunks, new_ids = [], []
+        for doc in tqdm(chunks, desc="🔄 Adding documents"):
+            doc_id = compute_sha1(doc.page_content)
+            doc.metadata["id"] = doc_id
+            if doc_id not in existing_ids:
+                new_chunks.append(doc)
+                new_ids.append(doc_id)
 
         if new_chunks:
             print(f"🆕 Adding {len(new_chunks)} new documents.")
             self.vs.add_documents(new_chunks, ids=new_ids)
-            if self.vectorstore_type == "chroma":
-                self.vs.persist()
+            self.vs.persist()
         else:
             print("✅ No new documents to add — already up to date.")
             

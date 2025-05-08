@@ -1,7 +1,10 @@
+# run_vectorstore_update.py
+
 import argparse
 from tqdm import tqdm
-from document_loader import PDFDirectoryLoader
+from utils import load_config
 from vectorstore_manager import VectorstoreManager
+from document_loader import SmartDocumentLoader
 
 # CLI setup
 parser = argparse.ArgumentParser(description="Manage vectorstore lifecycle.")
@@ -11,38 +14,32 @@ parser.add_argument("--reset", action="store_true", help="Delete and rebuild the
 parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file.")
 args = parser.parse_args()
 
-# Block silent execution with no flags
 if not (args.update or args.delete or args.reset):
     parser.print_help()
     exit(0)
 
-# Load manager
-vs_manager = VectorstoreManager(config_path=args.config)
+# Load config
+config = load_config(args.config)
+vs_manager = VectorstoreManager(config)
 
-# DELETE ONLY
+# DELETE operation
 if args.delete:
     vs_manager.delete_vectorstore()
     exit(0)
 
-# RESET (delete + full rebuild)
+# RESET operation
 if args.reset:
     print("🔄 Resetting vectorstore...")
     vs_manager.delete_vectorstore()
-    # Proceed to re-add documents after reset
 
-# UPDATE or RESET both continue here
-data_path = vs_manager.config.get("data_path", "./data")
-loader = PDFDirectoryLoader(path=data_path, config_path=args.config)
-
-# Load PDFs
+# Use Smart Loader
+loader = SmartDocumentLoader(config=config)
 documents = loader.load()
-print(f"📄 Loaded {len(documents)} documents.")
+print(f"📄 Loaded {len(documents)} documents from multiple sources.")
 
-# Split into chunks with progress
+# Chunking
 print("🔪 Splitting into chunks...")
-chunks = []
-for doc in tqdm(documents, desc="Chunking"):
-    chunks.extend(loader.split_documents([doc]))
+chunks = loader.split_documents(documents)
 
 # Add to vectorstore
 vs_manager.load_vectorstore()

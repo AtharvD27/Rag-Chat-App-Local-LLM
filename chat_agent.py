@@ -11,27 +11,28 @@ import yaml
 
 
 class ChatAgent:
-    def __init__(self, llm: LLM, retriever: VectorStoreRetriever, memory: ConversationBufferMemory = None, config_path: str = "config.yaml"):
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-        
-        prompt_path = config.get("prompt_path", "./prompts.yaml")
-        self.prompts = yaml.safe_load(open(prompt_path))
+    def __init__(self, llm: LLM, retriever: VectorStoreRetriever, memory: ConversationBufferMemory = None, config: dict = {}):
+        self.config = config
+        self.prompts = self._load_prompts(config.get("prompt_path", "./prompts.yaml"))
         self.llm = llm
         self.retriever = retriever
         self.memory = memory or ConversationBufferMemory(memory_key="chat_history", return_messages=True)
         self.chain = self._create_chain()
-
+        
+    def _load_prompts(self, prompt_path: str) -> dict:
+        with open(prompt_path) as f:
+            return yaml.safe_load(f)
+    
     def _create_chain(self) -> ConversationalRetrievalChain:
         # 1. Prompt to generate standalone question
-        rewrite_prompt = PromptTemplate.from_template(prompts["question_rewrite_prompt"])
+        rewrite_prompt = PromptTemplate.from_template(self.prompts["question_rewrite_prompt"])
         question_generator_chain = LLMChain(llm=self.llm, prompt=rewrite_prompt)
 
         # 2. Prompt to answer based on retrieved docs
         answer_prompt = ChatPromptTemplate.from_messages([
-            ("system", prompts["answer_prompt_system"]),
+            ("system", self.prompts["answer_prompt_system"]),
             MessagesPlaceholder("chat_history"),
-            ("human", prompts["answer_prompt_human"]),
+            ("human", self.prompts["answer_prompt_human"]),
         ])
         combine_docs_chain = create_stuff_documents_chain(llm=self.llm, prompt=answer_prompt)
 
@@ -51,13 +52,9 @@ class ChatAgent:
         return answer, sources
 
     def _extract_sources(self, docs: List[Document]) -> List[Dict]:
-        extracted = []
-        for doc in docs:
-            meta = doc.metadata
-            extracted.append({
-                "file": meta.get("file", "unknown"),
-                "page": meta.get("page", -1),
-                "chunk": meta.get("chunk", -1),
-                "text": doc.page_content.strip()
-            })
-        return extracted
+        return [{
+            "file": doc.metadata.get("file", "unknown"),
+            "page": doc.metadata.get("page", -1),
+            "chunk": doc.metadata.get("chunk", -1),
+            "text": doc.page_content.strip()
+        } for doc in docs]
