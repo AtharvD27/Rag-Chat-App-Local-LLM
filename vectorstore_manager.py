@@ -38,7 +38,6 @@ class VectorstoreManager:
         if new_chunks:
             print(f"🆕 Adding {len(new_chunks)} new documents.")
             self.vs.add_documents(new_chunks, ids=new_ids)
-            self.vs.persist()
         else:
             print("✅ No new documents to add — already up to date.")
             
