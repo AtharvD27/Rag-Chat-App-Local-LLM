@@ -121,7 +121,7 @@ class SmartDocumentLoader(BaseDocumentLoader):
     def load(self) -> List[Document]:
         docs = []
         file_types = os.listdir(self.path)
-        print(f"📄 Loaded {len(docs)} documents from {self.path}")
+        print(f"📄 Loaded {len(file_types)} documents from {self.path}")
 
         if any(f.endswith(".pdf") for f in file_types):
             docs.extend(PDFLoader(self.path, config=self.config).load())

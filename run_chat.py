@@ -52,7 +52,7 @@ def handle_session(config, override=None):
             for i, s in enumerate(sessions): 
                 print(f"{i+1}. Alias: {s['alias']}")
                 print(f"   ID: {s['id']}")
-                print(f"   Time: {s['timestamp']}")
+                print(f"   Time: {s['modified']}")
                 print(f"   Preview: {s['first_msg'][:80]}...\n")
             session_key = input("Enter Alias or session ID to resume: ").strip()
             memory = snap.resume_session(session_key)
