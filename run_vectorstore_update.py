@@ -1,6 +1,5 @@
-# run_vectorstore_update.py
-
 import argparse
+import warnings
 from tqdm import tqdm
 from utils import load_config
 from vectorstore_manager import VectorstoreManager
@@ -12,7 +11,12 @@ parser.add_argument("--update", action="store_true", help="Update vectorstore wi
 parser.add_argument("--delete", action="store_true", help="Delete the existing vectorstore.")
 parser.add_argument("--reset", action="store_true", help="Delete and rebuild the vectorstore.")
 parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file.")
+parser.add_argument("--debug", action="store_true", help="Enable debug mode and show warnings.")
+
 args = parser.parse_args()
+
+if not args.debug:
+        warnings.filterwarnings("ignore")
 
 if not (args.update or args.delete or args.reset):
     parser.print_help()

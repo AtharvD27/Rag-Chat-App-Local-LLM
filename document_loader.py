@@ -1,10 +1,9 @@
 import os
-import yaml
 import json
 import requests
 from utils import compute_sha1
 from bs4 import BeautifulSoup
-from typing import List, Dict
+from typing import List
 from abc import ABC, abstractmethod
 from langchain.docstore.document import Document
 from langchain.document_loaders import PyPDFLoader
@@ -121,19 +120,15 @@ class SmartDocumentLoader(BaseDocumentLoader):
 
     def load(self) -> List[Document]:
         docs = []
-        for file in os.listdir(self.path):
-            if file.endswith(".pdf"):
-                loader = PDFLoader(self.path, config=self.config)
-                docs.extend(loader.load())
-                break
-        for file in os.listdir(self.path):
-            if file.endswith(".json"):
-                loader = JSONLoader(self.path, config=self.config)
-                docs.extend(loader.load())
-                break
-        for file in os.listdir(self.path):
-            if file.endswith(".txt") or file.endswith(".html"):
-                loader = WebPageLoader(self.path, config=self.config)
-                docs.extend(loader.load())
-                break
+        file_types = os.listdir(self.path)
+        print(f"📄 Loaded {len(docs)} documents from {self.path}")
+
+        if any(f.endswith(".pdf") for f in file_types):
+            docs.extend(PDFLoader(self.path, config=self.config).load())
+        if any(f.endswith(".json") for f in file_types):
+            docs.extend(JSONLoader(self.path, config=self.config).load())
+        if any(f.endswith((".txt", ".html")) for f in file_types):
+            docs.extend(WebPageLoader(self.path, config=self.config).load())
+
         return docs
+

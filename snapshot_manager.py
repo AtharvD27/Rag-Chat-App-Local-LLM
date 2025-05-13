@@ -51,10 +51,10 @@ class SnapshotManager:
             "file": self.session_path
         }
         
-        self.sessions_meta[self.session_id] = self.metadata
-        self.alias_map[alias] = self.session_id
-        self._save_json(self.session_file, self.sessions_meta)
-        self._save_json(self.alias_file, self.alias_map)
+        #self.sessions_meta[self.session_id] = self.metadata
+        #self.alias_map[alias] = self.session_id
+        #self._save_json(self.session_file, self.sessions_meta)
+        #self._save_json(self.alias_file, self.alias_map)
         
         return self.session_id
 
@@ -99,7 +99,7 @@ class SnapshotManager:
     
     def list_sessions(self) -> List[Dict]:
         sessions = []
-        for sid, meta in self.sessions_meta.ietms():
+        for sid, meta in self.sessions_meta.items():
             try:
                 created = meta.get("created")
                 modified = meta.get("modified")
@@ -119,7 +119,6 @@ class SnapshotManager:
                 alias = sid
                 first_msg = "(corrupt or empty)"
                 
-    
             sessions.append({
                 "id": sid,
                 "alias": alias,
@@ -129,8 +128,8 @@ class SnapshotManager:
             })
                 
         def sort_key(s):
-            return s["modified"] or s["created"] or os.path.getmtime(os.path.join(self.snapshot_dir, f"{s['id']}.json"))
-           
+            return s.get("modified") or s.get("created")
+  
         return sorted(sessions, key=sort_key, reverse=True)
 
     def record_turn(self, question: str, answer: str, sources: List[Dict]):
@@ -152,6 +151,11 @@ class SnapshotManager:
 
         with open(self.session_path, "w") as f:
             json.dump(data, f, indent=2)
+            
+        self.sessions_meta[self.session_id] = self.metadata
+        self.alias_map[self.metadata["alias"]] = self.session_id
+        self._save_json(self.session_file, self.sessions_meta)
+        self._save_json(self.alias_file, self.alias_map)
 
         # Update metadata record
         self.sessions_meta[self.session_id] = self.metadata

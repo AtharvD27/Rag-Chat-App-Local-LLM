@@ -25,11 +25,14 @@ def setup_llm(config, overrides={}):
 def start_session(config, memory):
     return ChatAgent(config=config, llm=config["llm_instance"], retriever=config["retriever"], memory=memory)
 
-def handle_session(config):
+def handle_session(config, override=None):
     snap = SnapshotManager(snapshot_dir=config.get("snapshot_path", "./snapshots"))
 
-    print("\n🎯 Choose an option:\n1: Start new session\n2: Resume existing session\n3: Resume latest session")
-    choice = input("Choice: ").strip()
+    if not override:
+        print("\n🎯 Choose an option:\n1: Start new session\n2: Resume existing session\n3: Resume latest session")
+        choice = input("Choice: ").strip()
+    else:
+        choice = {"new": "1", "resume": "2"}.get(override, "1")
 
     # Start new session
     if choice == "1":
@@ -46,7 +49,6 @@ def handle_session(config):
             session_id = snap.start_new_session()
             memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
         else:
-            sessions = snap.list_sessions()
             for i, s in enumerate(sessions): 
                 print(f"{i+1}. Alias: {s['alias']}")
                 print(f"   ID: {s['id']}")
@@ -76,4 +78,4 @@ def handle_session(config):
     else:
         print("❌ Invalid input, exiting."); exit(1)
         
-    return snap, memory, session_id
+    return snap, memory

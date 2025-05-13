@@ -24,20 +24,19 @@ class VectorstoreManager:
 
         try:
             store_data = self.vs.get(include=["ids"])
-            print("STORED IDS (first 3):", store_data["ids"][:3])  # 👈 Add this line
             existing_ids = set(store_data["ids"])
         except Exception:
             existing_ids = set()
 
         new_chunks, new_ids = [], []
-        for doc in tqdm(chunks, desc="🔄 Adding documents"):
+        for doc in tqdm(chunks, desc="🔄 Adding chuncked documents"):
             doc_id = doc.metadata.get("id")
             if doc_id and doc_id not in existing_ids:
                 new_chunks.append(doc)
                 new_ids.append(doc_id)
 
         if new_chunks:
-            print(f"🆕 Added {len(new_chunks)} new files to the knowledge base.")
+            print(f"🆕 Added {len(new_chunks)} new document chuncks to the knowledge base.")
             self.vs.add_documents(new_chunks, ids=new_ids)
         else:
             print("✅ Your knowledge base is already up to date.")
